@@ -7,6 +7,12 @@
 #include <string.h>
 #include <unistd.h>
 
+#ifdef MAC
+#include <OpenCL/cl.h>
+#else
+#include <CL/cl.h>
+#endif
+
 void print_n(uint8_t *hash, int n);
 
 void run(char *command);
@@ -49,5 +55,7 @@ void commit_body(char *buffer);
 void commit_hash_outputs(char *commit, sha1nfo *s);
 void perform_commit(char *commit, char *sha);
 void sync_changes(int push);
+
+const char *get_cl_error_string(cl_int err);
 
 #endif

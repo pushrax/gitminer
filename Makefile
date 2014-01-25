@@ -42,7 +42,7 @@ endif
 endif
 endif
 
-$(PROJ): $(PROJ).c git.c sha1.c
+$(PROJ): $(PROJ).c git.c sha1.c cl.c
 	$(CC) $(CFLAGS) -o $@ $^ $(INC_DIRS:%=-I%) $(LIB_DIRS:%=-L%) $(LIBS)
 
 .PHONY: clean
