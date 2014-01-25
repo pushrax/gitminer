@@ -158,8 +158,8 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 	memset(hash.b, 0, 64);
 
 	size_t local_size = 32;
-	size_t global_size = 1024 * 256 * 128;
-	size_t hash_bucket_size = 1;//128;
+	size_t global_size = 1024 * 256;
+	size_t hash_bucket_size = 128;
 	size_t hash_group_count = global_size * hash_bucket_size;
 	int len = s->byteCount, count = 0, i;
 	struct timespec start, end, group_start, group_end;
@@ -194,7 +194,7 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 		CL_SET_ARG(s->state.w[4]);
 		CL_SET_ARG(len);
 		err |= clSetKernelArg(kernel, arg_count++, sizeof(cl_ulong), (void *) & (offset));
-		//CL_SET_ARG(hash_bucket_size);
+		CL_SET_ARG(hash_bucket_size);
 		err |= clSetKernelArg(kernel, arg_count++, sizeof(cl_mem), &nonce_buffer);
 		err |= clSetKernelArg(kernel, arg_count++, sizeof(cl_mem), &hash_buffer);
 #undef CL_SET_ARG

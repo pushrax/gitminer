@@ -27,18 +27,18 @@ __kernel void sha1_round(
 	const uint h4,
 	const uint pre_count,
 	const ulong offset,
-	//const uint hash_count,
+	const uint hash_count,
 	__global ulong *valid_nonce,
 	__global uint *hash)
 {
 	uint buffer[BLOCK_LENGTH / 4];
 	uint state[HASH_LENGTH / 4];
 	uint count = pre_count + 8;
-	ulong nonce = get_global_id(0) /** hash_count*/ + offset;
-	//ulong max_nonce = nonce + hash_count;
+	ulong nonce = get_global_id(0) * hash_count + offset;
+	ulong max_nonce = nonce + hash_count;
 	//printf("%d - %d - %d\n", get_global_id(0), get_local_id(0), nonce);
 
-	//while (nonce < max_nonce)
+	while (nonce < max_nonce)
 	{
 
 		buffer[0] = ascii(nonce, 0) | ascii(nonce, 1) | ascii(nonce, 2) | ascii(nonce, 3);
@@ -104,15 +104,14 @@ __kernel void sha1_round(
 				break;
 			}
 		}*/
-		if (a + h0 < 1 && valid_nonce[0] == 0)
+		if (a + h0 < 1)// && valid_nonce[0] == 0)
 		{
-
+			if (valid_nonce[0] != 0) break;
 			state[0] = a + h0;
 			state[1] = b + h1;
 			state[2] = c + h2;
 			state[3] = d + h3;
 			state[4] = e + h4;
-			//if (valid_nonce[0] == 0) ;
 			valid_nonce[0] = nonce;
 			for (i = 0; i < 5; i++)
 			{
@@ -124,7 +123,7 @@ __kernel void sha1_round(
 				hash[i] = b;
 			}
 			barrier(CLK_GLOBAL_MEM_FENCE);
-			//break;
+			break;
 		}
 		nonce++;
 	}
