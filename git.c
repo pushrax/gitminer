@@ -121,13 +121,15 @@ void sync_changes(int push)
 		while (fgets(buffer, sizeof(buffer) - 1, output) != NULL)
 		{
 			printf("%s", buffer);
-			if (strstr(buffer, "Congratulations") != NULL) {
+			if (strstr(buffer, "Congratulations") != NULL)
+			{
 				need_to_fetch = 0;
 			}
 		}
 		pclose(output);
 	}
-	if (need_to_fetch) {
+	if (need_to_fetch)
+	{
 		printf("[GIT] ");
 		run("git fetch --all ");
 		reset();

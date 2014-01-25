@@ -24,7 +24,8 @@ __kernel void sha1_round(
 	const ulong offset,
 	const uint hash_count,
 	__global ulong *valid_nonce
-) {
+)
+{
 	uint buffer[BLOCK_LENGTH / 4];
 	uint state[HASH_LENGTH / 4];
 	uint count = pre_count + 8;

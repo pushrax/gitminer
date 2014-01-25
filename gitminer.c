@@ -31,10 +31,10 @@ static void halt()
 	printf("\nReceived signal to stop");
 	if (stopping)
 	{
-		printf(", currently in progress.");
+		printf(", currently in progress.\n");
 		return;
 	}
-	printf(", stopping gracefully.");
+	printf(", stopping gracefully.\n");
 	stopping = 1;
 	exit(1);
 }
@@ -150,7 +150,7 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 	cl_ulong nonce = 0, offset = 0;
 
 	size_t local_size = 32;
-	size_t global_size = 128 * 256;
+	size_t global_size = 128 * 256 * 4;
 	size_t hash_bucket_size = 128;
 	size_t hash_group_count = global_size * hash_bucket_size;
 	int len = s->byteCount, count = 0, i;
@@ -195,7 +195,8 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 		check_err(err, "Couldn't enqueue the kernel");
 
 		err = clFinish(queue);
-		if (err < 0) {
+		if (err < 0)
+		{
 			clReleaseMemObject(nonce_buffer);
 			check_err(err, "Couldn't flush");
 		}
@@ -212,13 +213,13 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 		time = timespec_duration(group_start, group_end);
 		printf("\r%f Mhash/s ", (double)hash_group_count / time / 1E6);
 		for (i = 0; i < count / 80 + 1; i++) printf(".");
-		printf("%lu", offset);
+		printf(" %lu", offset);
 		offset += hash_group_count;
 	}
 	if (nonce == 0)
 	{
 		clReleaseMemObject(nonce_buffer);
-		printf("\nSKIPPING | got nonce 0");
+		printf("\nSKIPPING | got nonce 0\n");
 		return 0;
 	}
 
@@ -246,7 +247,6 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 
 void mine_coins(char *user)
 {
-	reset();
 	add_coin(user);
 
 	char commit[512];
