@@ -7,6 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
+#include <signal.h>
 
 #include "git.h"
 
@@ -15,6 +16,31 @@
 #else
 #include <CL/cl.h>
 #endif
+
+cl_device_id device;
+cl_context context;
+cl_program program;
+cl_kernel kernel;
+cl_command_queue queue;
+int stopping = 0;
+
+static void destroy() {
+	if (kernel) clReleaseKernel(kernel);
+	if (queue) clReleaseCommandQueue(queue);
+	if (program) clReleaseProgram(program);
+	if (context) clReleaseContext(context);
+}
+
+static void halt() {
+	printf("\nReceived signal to stop");
+	if (stopping) {
+		printf(", currently in progress.");
+		return;
+	}
+	printf(", stopping gracefully.");
+	stopping = 1;
+	exit(1);
+}
 
 void format_hash(uint8_t *hash, char *hash_string)
 {
@@ -39,7 +65,7 @@ void check_err(cl_int err, const char *message)
 	if (err < 0)
 	{
 		perror(message);
-		exit(1);
+		halt();
 	}
 }
 
@@ -123,12 +149,6 @@ typedef union
 	uint32_t w[16];
 } Hash;
 
-cl_device_id device;
-cl_context context;
-cl_program program;
-cl_kernel kernel;
-cl_command_queue queue;
-
 double timespec_duration(struct timespec start, struct timespec end)
 {
 	return (end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec) / 1E9;
@@ -160,8 +180,9 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 
 	err = 0;
 
-	while (nonce == 0)
+	while (nonce == 0 && offset < 0xffffffff - hash_group_count)
 	{
+		if (stopping) return 0;
 		int arg_count = 0;
 		clock_gettime(CLOCK_MONOTONIC, &group_start);
 
@@ -185,7 +206,11 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 
 		err = clEnqueueReadBuffer(queue, nonce_buffer, CL_TRUE, 0, sizeof(nonce), &nonce, 0, NULL, NULL);
 		err |= clEnqueueReadBuffer(queue, hash_buffer, CL_TRUE, 0, sizeof(hash.w), hash.w, 0, NULL, NULL);
-		check_err(err, "Couldn't read a buffer");
+		if (err < 0) {
+			clReleaseMemObject(hash_buffer);
+			clReleaseMemObject(nonce_buffer);
+			check_err(err, "Couldn't read a buffer");
+		}
 
 		count++;
 		clock_gettime(CLOCK_MONOTONIC, &group_end);
@@ -195,6 +220,11 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 		for (i = 0; i < count / 10 + 1; i++) printf(".");
 		printf("%lu", offset);
 		offset += hash_group_count;
+	}
+	if (nonce == 0)
+	{
+		printf("\nSKIPPING | got nonce 0");
+		return 0;
 	}
 
 	for (i = 0; i < 8; i++)
@@ -208,7 +238,7 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 
 	clock_gettime(CLOCK_MONOTONIC, &end);
 	time = timespec_duration(start, end);
-	printf("\nFOUND %s | %s | %d hashes | %f seconds | %f Mhash/s\n", hash_str, nonce_str, offset, time, (double) offset / time / 1E6);
+	printf("\nFOUND %s | %s | %lu hashes | %f seconds | %f Mhash/s\n", hash_str, nonce_str, offset, time, (double) offset / time / 1E6);
 
 	clReleaseMemObject(hash_buffer);
 	clReleaseMemObject(nonce_buffer);
@@ -228,7 +258,7 @@ void mine_coins(char *user)
 	commit_hash_outputs(commit, &s);
 
 	char hash_str[128], nonce_str[64];
-	find_nonce(&s, hash_str, nonce_str);
+	if (find_nonce(&s, hash_str, nonce_str) == 0) return;
 	//printf("%s // %s\n", nonce_str, hash_str);
 
 	char final_commit[512];
@@ -241,6 +271,11 @@ void mine_coins(char *user)
 
 int main(int argc, char **argv)
 {
+	if (signal(SIGINT, halt) == SIG_ERR || signal(SIGTERM, halt) == SIG_ERR)
+	{
+		fputs("An error occurred while setting a signal handler.\n", stderr);
+		return EXIT_FAILURE;
+	}
 	int c;
 	char *clone_url, *user;
 	while ((c = getopt (argc, argv, "c:u:")) != -1)
@@ -280,14 +315,11 @@ int main(int argc, char **argv)
 	clone(clone_url);
 	sync_changes(0);
 
-	while (1)
+	while (!stopping)
 	{
 		mine_coins(user);
 	}
 
-	clReleaseKernel(kernel);
-	clReleaseCommandQueue(queue);
-	clReleaseProgram(program);
-	clReleaseContext(context);
+	destroy();
 	return 0;
 }

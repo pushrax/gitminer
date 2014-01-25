@@ -1,5 +1,5 @@
 #!/bin/bash
 
-while :; do
+#while :; do
 	./gitminer -c lvl1-kdilax5o@stripe-ctf.com:current-round -u user-qy4eit56
-done
+#done
