@@ -114,7 +114,8 @@ void perform_commit(char *commit, char *sha)
 
 void sync_changes(int push)
 {
-	if (push) {
+	if (push)
+	{
 		printf("[GIT] ");
 		run("git push");
 	}

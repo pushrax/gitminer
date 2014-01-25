@@ -24,16 +24,19 @@ cl_kernel kernel;
 cl_command_queue queue;
 int stopping = 0;
 
-static void destroy() {
+static void destroy()
+{
 	if (kernel) clReleaseKernel(kernel);
 	if (queue) clReleaseCommandQueue(queue);
 	if (program) clReleaseProgram(program);
 	if (context) clReleaseContext(context);
 }
 
-static void halt() {
+static void halt()
+{
 	printf("\nReceived signal to stop");
-	if (stopping) {
+	if (stopping)
+	{
 		printf(", currently in progress.");
 		return;
 	}
@@ -60,11 +63,115 @@ void print_n(uint8_t *hash, int n)
 	printf("\n");
 }
 
+const char *get_error_string(cl_int err)
+{
+	switch (err)
+	{
+		case 0:
+			return "CL_SUCCESS";
+		case -1:
+			return "CL_DEVICE_NOT_FOUND";
+		case -2:
+			return "CL_DEVICE_NOT_AVAILABLE";
+		case -3:
+			return "CL_COMPILER_NOT_AVAILABLE";
+		case -4:
+			return "CL_MEM_OBJECT_ALLOCATION_FAILURE";
+		case -5:
+			return "CL_OUT_OF_RESOURCES";
+		case -6:
+			return "CL_OUT_OF_HOST_MEMORY";
+		case -7:
+			return "CL_PROFILING_INFO_NOT_AVAILABLE";
+		case -8:
+			return "CL_MEM_COPY_OVERLAP";
+		case -9:
+			return "CL_IMAGE_FORMAT_MISMATCH";
+		case -10:
+			return "CL_IMAGE_FORMAT_NOT_SUPPORTED";
+		case -11:
+			return "CL_BUILD_PROGRAM_FAILURE";
+		case -12:
+			return "CL_MAP_FAILURE";
+
+		case -30:
+			return "CL_INVALID_VALUE";
+		case -31:
+			return "CL_INVALID_DEVICE_TYPE";
+		case -32:
+			return "CL_INVALID_PLATFORM";
+		case -33:
+			return "CL_INVALID_DEVICE";
+		case -34:
+			return "CL_INVALID_CONTEXT";
+		case -35:
+			return "CL_INVALID_QUEUE_PROPERTIES";
+		case -36:
+			return "CL_INVALID_COMMAND_QUEUE";
+		case -37:
+			return "CL_INVALID_HOST_PTR";
+		case -38:
+			return "CL_INVALID_MEM_OBJECT";
+		case -39:
+			return "CL_INVALID_IMAGE_FORMAT_DESCRIPTOR";
+		case -40:
+			return "CL_INVALID_IMAGE_SIZE";
+		case -41:
+			return "CL_INVALID_SAMPLER";
+		case -42:
+			return "CL_INVALID_BINARY";
+		case -43:
+			return "CL_INVALID_BUILD_OPTIONS";
+		case -44:
+			return "CL_INVALID_PROGRAM";
+		case -45:
+			return "CL_INVALID_PROGRAM_EXECUTABLE";
+		case -46:
+			return "CL_INVALID_KERNEL_NAME";
+		case -47:
+			return "CL_INVALID_KERNEL_DEFINITION";
+		case -48:
+			return "CL_INVALID_KERNEL";
+		case -49:
+			return "CL_INVALID_ARG_INDEX";
+		case -50:
+			return "CL_INVALID_ARG_VALUE";
+		case -51:
+			return "CL_INVALID_ARG_SIZE";
+		case -52:
+			return "CL_INVALID_KERNEL_ARGS";
+		case -53:
+			return "CL_INVALID_WORK_DIMENSION";
+		case -54:
+			return "CL_INVALID_WORK_GROUP_SIZE";
+		case -55:
+			return "CL_INVALID_WORK_ITEM_SIZE";
+		case -56:
+			return "CL_INVALID_GLOBAL_OFFSET";
+		case -57:
+			return "CL_INVALID_EVENT_WAIT_LIST";
+		case -58:
+			return "CL_INVALID_EVENT";
+		case -59:
+			return "CL_INVALID_OPERATION";
+		case -60:
+			return "CL_INVALID_GL_OBJECT";
+		case -61:
+			return "CL_INVALID_BUFFER_SIZE";
+		case -62:
+			return "CL_INVALID_MIP_LEVEL";
+		case -63:
+			return "CL_INVALID_GLOBAL_WORK_SIZE";
+		default:
+			return "Unknown OpenCL error";
+	}
+}
+
 void check_err(cl_int err, const char *message)
 {
 	if (err < 0)
 	{
-		perror(message);
+		printf("\n%d | %s | %s\n", err, get_error_string(err), message);
 		halt();
 	}
 }
@@ -182,7 +289,10 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 
 	while (nonce == 0 && offset < 0xffffffff - hash_group_count)
 	{
-		if (stopping) return 0;
+		if (stopping)
+		{
+			return 0;
+		}
 		int arg_count = 0;
 		clock_gettime(CLOCK_MONOTONIC, &group_start);
 
@@ -193,7 +303,7 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 		CL_SET_ARG(s->state.w[3]);
 		CL_SET_ARG(s->state.w[4]);
 		CL_SET_ARG(len);
-		err |= clSetKernelArg(kernel, arg_count++, sizeof(cl_ulong), (void *)&(offset));
+		err |= clSetKernelArg(kernel, arg_count++, sizeof(cl_ulong), (void *) & (offset));
 		//CL_SET_ARG(hash_bucket_size);
 		err |= clSetKernelArg(kernel, arg_count++, sizeof(cl_mem), &nonce_buffer);
 		err |= clSetKernelArg(kernel, arg_count++, sizeof(cl_mem), &hash_buffer);
@@ -206,7 +316,8 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 
 		err = clEnqueueReadBuffer(queue, nonce_buffer, CL_TRUE, 0, sizeof(nonce), &nonce, 0, NULL, NULL);
 		err |= clEnqueueReadBuffer(queue, hash_buffer, CL_TRUE, 0, sizeof(hash.w), hash.w, 0, NULL, NULL);
-		if (err < 0) {
+		if (err < 0)
+		{
 			clReleaseMemObject(hash_buffer);
 			clReleaseMemObject(nonce_buffer);
 			check_err(err, "Couldn't read a buffer");
@@ -223,6 +334,8 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 	}
 	if (nonce == 0)
 	{
+		clReleaseMemObject(hash_buffer);
+		clReleaseMemObject(nonce_buffer);
 		printf("\nSKIPPING | got nonce 0");
 		return 0;
 	}
@@ -258,7 +371,11 @@ void mine_coins(char *user)
 	commit_hash_outputs(commit, &s);
 
 	char hash_str[128], nonce_str[64];
-	if (find_nonce(&s, hash_str, nonce_str) == 0) return;
+	if (find_nonce(&s, hash_str, nonce_str) == 0)
+	{
+		sync_changes(0);
+		return;
+	}
 	//printf("%s // %s\n", nonce_str, hash_str);
 
 	char final_commit[512];
