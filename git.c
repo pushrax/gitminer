@@ -97,9 +97,6 @@ void commit_hash_outputs(char *commit, sha1nfo *s)
 	buffer[10] = 0;
 	sha1_init(s);
 	sha1_write(s, buffer, len);
-	//print_n(sha1_result(s), 20);
-	//printf("\n%d\n", s->byteCount);
-	//exit(0);
 }
 
 void perform_commit(char *commit, char *sha)
@@ -114,13 +111,26 @@ void perform_commit(char *commit, char *sha)
 
 void sync_changes(int push)
 {
+	int need_to_fetch = 1;
+	char buffer[1024];
 	if (push)
 	{
 		printf("[GIT] ");
-		run("git push");
+		FILE *output;
+		output = popen("git push 2>&1", "r");
+		while (fgets(buffer, sizeof(buffer) - 1, output) != NULL)
+		{
+			printf("%s", buffer);
+			if (strstr(buffer, "Congratulations") != NULL) {
+				need_to_fetch = 0;
+			}
+		}
+		pclose(output);
 	}
-	printf("[GIT] ");
-	run("git fetch --all ");
-	reset();
+	if (need_to_fetch) {
+		printf("[GIT] ");
+		run("git fetch --all ");
+		reset();
+	}
 }
 

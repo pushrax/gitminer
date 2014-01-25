@@ -19,7 +19,7 @@ ifneq ($(DARWIN),)
 	endif
 else
 
-LIBS=-lOpenCL
+LIBS=-lOpenCL -lpthread
 ifeq ($(PROC_TYPE),)
 	CFLAGS+=-m32
 else

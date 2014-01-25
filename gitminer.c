@@ -140,12 +140,6 @@ cl_program build_program(cl_context ctx, cl_device_id dev, const char *filename)
 }
 
 
-typedef union
-{
-	uint8_t b[64];
-	uint32_t w[16];
-} Hash;
-
 double timespec_duration(struct timespec start, struct timespec end)
 {
 	return (end.tv_sec - start.tv_sec) + (double)(end.tv_nsec - start.tv_nsec) / 1E9;
@@ -154,11 +148,9 @@ double timespec_duration(struct timespec start, struct timespec end)
 cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 {
 	cl_ulong nonce = 0, offset = 0;
-	Hash hash;
-	memset(hash.b, 0, 64);
 
 	size_t local_size = 32;
-	size_t global_size = 1024 * 256;
+	size_t global_size = 128 * 256;
 	size_t hash_bucket_size = 128;
 	size_t hash_group_count = global_size * hash_bucket_size;
 	int len = s->byteCount, count = 0, i;
@@ -169,10 +161,9 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 	clock_gettime(CLOCK_MONOTONIC, &start);
 
 	cl_int err;
-	cl_mem nonce_buffer, hash_buffer;
+	cl_mem nonce_buffer;
 
 	nonce_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(nonce), &nonce, &err);
-	hash_buffer = clCreateBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR, sizeof(hash.w), hash.w, &err);
 	check_err(err, "Couldn't create a buffer");
 
 	err = 0;
@@ -196,7 +187,6 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 		err |= clSetKernelArg(kernel, arg_count++, sizeof(cl_ulong), (void *) & (offset));
 		CL_SET_ARG(hash_bucket_size);
 		err |= clSetKernelArg(kernel, arg_count++, sizeof(cl_mem), &nonce_buffer);
-		err |= clSetKernelArg(kernel, arg_count++, sizeof(cl_mem), &hash_buffer);
 #undef CL_SET_ARG
 
 		check_err(err, "Couldn't create a kernel argument");
@@ -204,12 +194,14 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 		err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_size, &local_size, 0, NULL, NULL);
 		check_err(err, "Couldn't enqueue the kernel");
 
-		clFinish(queue);
-		err = clEnqueueReadBuffer(queue, nonce_buffer, CL_TRUE, 0, sizeof(nonce), &nonce, 0, NULL, NULL);
-		err |= clEnqueueReadBuffer(queue, hash_buffer, CL_TRUE, 0, sizeof(hash.w), hash.w, 0, NULL, NULL);
+		err = clFinish(queue);
+		if (err < 0) {
+			clReleaseMemObject(nonce_buffer);
+			check_err(err, "Couldn't flush");
+		}
+		err |= clEnqueueReadBuffer(queue, nonce_buffer, CL_TRUE, 0, sizeof(nonce), &nonce, 0, NULL, NULL);
 		if (err < 0)
 		{
-			clReleaseMemObject(hash_buffer);
 			clReleaseMemObject(nonce_buffer);
 			check_err(err, "Couldn't read a buffer");
 		}
@@ -219,13 +211,12 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 
 		time = timespec_duration(group_start, group_end);
 		printf("\r%f Mhash/s ", (double)hash_group_count / time / 1E6);
-		for (i = 0; i < count / 10 + 1; i++) printf(".");
+		for (i = 0; i < count / 80 + 1; i++) printf(".");
 		printf("%lu", offset);
 		offset += hash_group_count;
 	}
 	if (nonce == 0)
 	{
-		clReleaseMemObject(hash_buffer);
 		clReleaseMemObject(nonce_buffer);
 		printf("\nSKIPPING | got nonce 0");
 		return 0;
@@ -238,13 +229,17 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 #undef ascii
 	}
 	nonce_str[8] = 0;
-	format_hash(hash.b, hash_str);
+
+	sha1_write(s, nonce_str, 8);
+	sha1_result(s);
+
+	format_hash(s->state.b, hash_str);
 
 	clock_gettime(CLOCK_MONOTONIC, &end);
 	time = timespec_duration(start, end);
 	printf("\nFOUND %s | %s | %lu hashes | %f seconds | %f Mhash/s\n", hash_str, nonce_str, offset, time, (double) offset / time / 1E6);
 
-	clReleaseMemObject(hash_buffer);
+	//clReleaseMemObject(hash_buffer);
 	clReleaseMemObject(nonce_buffer);
 	return nonce;
 }

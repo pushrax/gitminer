@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #ifdef MAC
 #include <OpenCL/cl.h>

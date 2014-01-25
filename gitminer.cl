@@ -9,11 +9,6 @@
 #define d_rol32(n, k) (n << k) | (n >> (32 - k))
 #define ascii(n, k) ('a' + (((n) >> k * 4) & 0xf)) << (k * 8 % 32)
 
-__constant uint diff[20] =
-{
-	0x00000001, 0xffffffff, 0xffffffff, 0xffffffff, 0xfffffff
-};
-
 uint rol32(uint n, int bits) // faster for CPUs for some reason
 {
 	return (n << bits) | (n >> (32 - bits));
@@ -28,9 +23,8 @@ __kernel void sha1_round(
 	const uint pre_count,
 	const ulong offset,
 	const uint hash_count,
-	__global ulong *valid_nonce,
-	__global uint *hash)
-{
+	__global ulong *valid_nonce
+) {
 	uint buffer[BLOCK_LENGTH / 4];
 	uint state[HASH_LENGTH / 4];
 	uint count = pre_count + 8;
@@ -92,36 +86,10 @@ __kernel void sha1_round(
 			a = t;
 		}
 
-		//bool valid = false;
-
-		/*for (i = 0; i < 5; i++)
-		{
-			a = state[i];
-			if (a > diff[i]) break;
-			if (a < diff[i])
-			{
-				valid = true;
-				break;
-			}
-		}*/
-		if (a + h0 < 1)// && valid_nonce[0] == 0)
+		if (a + h0 <= 1)
 		{
 			if (valid_nonce[0] != 0) break;
-			state[0] = a + h0;
-			state[1] = b + h1;
-			state[2] = c + h2;
-			state[3] = d + h3;
-			state[4] = e + h4;
 			valid_nonce[0] = nonce;
-			for (i = 0; i < 5; i++)
-			{
-				a = state[i];
-				b = (a << 24);
-				b |= (a << 8) & 0x00ff0000;
-				b |= (a >> 8) & 0x0000ff00;
-				b |= (a >> 24);
-				hash[i] = b;
-			}
 			barrier(CLK_GLOBAL_MEM_FENCE);
 			break;
 		}
