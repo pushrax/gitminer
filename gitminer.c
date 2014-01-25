@@ -172,7 +172,7 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 	cl_mem nonce_buffer, hash_buffer;
 
 	nonce_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(nonce), &nonce, &err);
-	hash_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(hash.w), hash.w, &err);
+	hash_buffer = clCreateBuffer(context, CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR, sizeof(hash.w), hash.w, &err);
 	check_err(err, "Couldn't create a buffer");
 
 	err = 0;
@@ -204,6 +204,7 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 		err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_size, &local_size, 0, NULL, NULL);
 		check_err(err, "Couldn't enqueue the kernel");
 
+		clFinish(queue);
 		err = clEnqueueReadBuffer(queue, nonce_buffer, CL_TRUE, 0, sizeof(nonce), &nonce, 0, NULL, NULL);
 		err |= clEnqueueReadBuffer(queue, hash_buffer, CL_TRUE, 0, sizeof(hash.w), hash.w, 0, NULL, NULL);
 		if (err < 0)
