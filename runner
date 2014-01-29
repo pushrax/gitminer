@@ -3,5 +3,5 @@
 while :; do
 	./gitminer2 -u user-qy4eit56 -n 000000
 	echo "Miner stopped. Restarting in 10 seconds (Ctrl-C to cancel)."
-	sleep 600
+	sleep 10
 done
