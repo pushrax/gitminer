@@ -153,7 +153,7 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 {
 	cl_uint nonce = 0, offset = 0;
 
-	size_t local_size = 64;
+	size_t local_size = 1024;
 	size_t global_size = 128 * 256 * 4;
 	size_t hash_bucket_size = 128;
 	size_t hash_group_count = global_size * hash_bucket_size;

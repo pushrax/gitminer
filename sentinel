@@ -6,5 +6,5 @@ PAGER=
 
 while :; do
 	git fetch upstream > /dev/null
-	sleep 8
+	sleep 4
 done
