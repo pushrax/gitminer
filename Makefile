@@ -38,6 +38,7 @@ else
 ifdef CUDA
    INC_DIRS=. $(CUDA)/OpenCL/common/inc
 endif
+INC_DIRS=. /usr/local/cuda-5.5/include
 
 endif
 endif
