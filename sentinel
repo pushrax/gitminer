@@ -1,21 +1,10 @@
 #!/bin/bash
 
-git clone lvl1-kdilax5o@stripe-ctf.com:current-round current-round-mirror
-cd current-round-mirror
-git fetch --all > /dev/null
-git reset --hard origin/master > /dev/null
-lastsha=$(git rev-parse HEAD)
+cd current-round
+git remote add upstream lvl1-ya7stdr9@stripe-ctf.com:current-round
 PAGER=
 
 while :; do
-	git fetch --all > /dev/null
-	git reset --hard origin/master > /dev/null
-	sha=$(git rev-parse HEAD)
-	user=$(git log -1 --pretty=%cn | xargs echo -n)
-	if [ "$sha" != "$lastsha" ] && [ "$user" != "pushrax" ]; then
-		echo "RESTARTING -- $lastsha -> $sha -- $user"
-		lastsha="$sha"
-		killall gitminer
-	fi
+	git fetch upstream > /dev/null
 	sleep 10
 done

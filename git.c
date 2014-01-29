@@ -32,19 +32,10 @@ void run_with_input(char *command, char *buffer, int len)
 	pclose(input);
 }
 
-void gclone(char *origin)
-{
-	char cmd_buffer[256];
-	printf("[GIT] ");
-	sprintf(cmd_buffer, "git clone %s current-round 2>&1 >/dev/null", origin);
-	run(cmd_buffer);
-	chdir("current-round");
-}
-
 void reset()
 {
 	printf("[GIT] ");
-	run("git reset --hard origin/master");
+	run("git reset --hard upstream/master");
 }
 
 void add_coin(char *user)
@@ -117,7 +108,7 @@ void sync_changes(int push)
 	{
 		printf("[GIT] ");
 		FILE *output;
-		output = popen("git push 2>&1", "r");
+		output = popen("git push origin 2>&1", "r");
 		while (fgets(buffer, sizeof(buffer) - 1, output) != NULL)
 		{
 			printf("%s", buffer);

@@ -285,14 +285,11 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 	int c;
-	char *clone_url, *user;
+	char *user;
 	while ((c = getopt (argc, argv, "c:u:n:")) != -1)
 	{
 		switch (c)
 		{
-			case 'c':
-				clone_url = optarg;
-				break;
 			case 'u':
 				user = optarg;
 				break;
@@ -303,9 +300,9 @@ int main(int argc, char **argv)
 				abort();
 		}
 	}
-	if (clone_url == NULL || user == NULL)
+	if (node_id == NULL || user == NULL)
 	{
-		printf("Usage: gitminer -c <clone_url> -u <username> -n <node_id>\n");
+		printf("Usage: gitminer -u <username> -n <node_id>\n");
 		exit(1);
 	}
 	cl_int err;
@@ -323,7 +320,7 @@ int main(int argc, char **argv)
 	kernel = clCreateKernel(program, KERNEL_FUNC, &err);
 	check_err(err, "Couldn't create a kernel");
 
-	gclone(clone_url);
+	chdir("current-round");
 	sync_changes(0);
 
 	while (!stopping)
