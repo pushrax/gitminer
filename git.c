@@ -123,7 +123,7 @@ void sync_changes(int push)
 	{
 		printf("[GIT] ");
 		run("git fetch --all ");
-		reset();
 	}
+	reset();
 }
 
