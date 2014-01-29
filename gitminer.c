@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <signal.h>
+#include <byteswap.h>
 
 #include "git.h"
 
@@ -17,6 +18,7 @@ cl_program program;
 cl_kernel kernel;
 cl_command_queue queue;
 int stopping = 0;
+char *node_id;
 
 static void destroy()
 {
@@ -147,9 +149,9 @@ double timespec_duration(struct timespec start, struct timespec end)
 
 cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 {
-	cl_ulong nonce = 0, offset = 0;
+	cl_uint nonce = 0, offset = 0;
 
-	size_t local_size = 32;
+	size_t local_size = 64;
 	size_t global_size = 128 * 256 * 4;
 	size_t hash_bucket_size = 128;
 	size_t hash_group_count = global_size * hash_bucket_size;
@@ -184,7 +186,7 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 		CL_SET_ARG(s->state.w[3]);
 		CL_SET_ARG(s->state.w[4]);
 		CL_SET_ARG(len);
-		err |= clSetKernelArg(kernel, arg_count++, sizeof(cl_ulong), (void *) & (offset));
+		CL_SET_ARG(offset);
 		CL_SET_ARG(hash_bucket_size);
 		err |= clSetKernelArg(kernel, arg_count++, sizeof(cl_mem), &nonce_buffer);
 #undef CL_SET_ARG
@@ -198,28 +200,28 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 		if (err < 0)
 		{
 			clReleaseMemObject(nonce_buffer);
-			check_err(err, "Couldn't flush");
+			check_err(err, "Couldn't execute the kernel");
 		}
-		err |= clEnqueueReadBuffer(queue, nonce_buffer, CL_TRUE, 0, sizeof(nonce), &nonce, 0, NULL, NULL);
+		err = clEnqueueReadBuffer(queue, nonce_buffer, CL_TRUE, 0, sizeof(nonce), &nonce, 0, NULL, NULL);
 		if (err < 0)
 		{
 			clReleaseMemObject(nonce_buffer);
-			check_err(err, "Couldn't read a buffer");
+			check_err(err, "Couldn't read the nonce buffer");
 		}
 
 		count++;
 		clock_gettime(CLOCK_MONOTONIC, &group_end);
 
 		time = timespec_duration(group_start, group_end);
-		printf("\r%f Mhash/s ", (double)hash_group_count / time / 1E6);
+		printf("\r%f MH/s ", (double)hash_group_count / time / 1E6);
 		for (i = 0; i < count / 80 + 1; i++) printf(".");
-		printf(" %lu", offset);
+		printf(" %u", offset);
 		offset += hash_group_count;
 	}
 	if (nonce == 0)
 	{
 		clReleaseMemObject(nonce_buffer);
-		printf("\nSKIPPING | got nonce 0\n");
+		printf("\nSKIPPING | didn't find a valid hash\n");
 		return 0;
 	}
 
@@ -229,7 +231,8 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 		nonce_str[i ^ 3] = ascii(nonce, i);
 #undef ascii
 	}
-	nonce_str[8] = 0;
+	memset(nonce_str, 0, 8);
+	*((cl_uint*) nonce_str) = __bswap_32(nonce);
 
 	sha1_write(s, nonce_str, 8);
 	sha1_result(s);
@@ -238,7 +241,7 @@ cl_ulong find_nonce(sha1nfo *s, char *hash_str, char *nonce_str)
 
 	clock_gettime(CLOCK_MONOTONIC, &end);
 	time = timespec_duration(start, end);
-	printf("\nFOUND %s | %s | %lu hashes | %f seconds | %f Mhash/s\n", hash_str, nonce_str, offset, time, (double) offset / time / 1E6);
+	printf("\nFOUND %s | %s | %u hashes | %f seconds | %f Mhash/s\n", hash_str, nonce_str, offset, time, (double) offset / time / 1E6);
 
 	//clReleaseMemObject(hash_buffer);
 	clReleaseMemObject(nonce_buffer);
@@ -250,7 +253,7 @@ void mine_coins(char *user)
 	add_coin(user);
 
 	char commit[512];
-	commit_body(commit);
+	commit_body(commit, node_id);
 	//printf("%s\n", commit);
 
 	sha1nfo s;
@@ -265,10 +268,12 @@ void mine_coins(char *user)
 	//printf("%s // %s\n", nonce_str, hash_str);
 
 	char final_commit[512];
-	sprintf(final_commit, "%s%s", commit, nonce_str);
+	size_t len = strlen(commit);
+	memcpy(final_commit, commit, len);
+	memcpy(final_commit + len, nonce_str, 8);
 	//printf("%s\n", final_commit);
 
-	perform_commit(final_commit, hash_str);
+	perform_commit(final_commit, hash_str, len + 8);
 	sync_changes(1);
 }
 
@@ -281,7 +286,7 @@ int main(int argc, char **argv)
 	}
 	int c;
 	char *clone_url, *user;
-	while ((c = getopt (argc, argv, "c:u:")) != -1)
+	while ((c = getopt (argc, argv, "c:u:n:")) != -1)
 	{
 		switch (c)
 		{
@@ -291,13 +296,16 @@ int main(int argc, char **argv)
 			case 'u':
 				user = optarg;
 				break;
+			case 'n':
+				node_id = optarg;
+				break;
 			default:
 				abort();
 		}
 	}
 	if (clone_url == NULL || user == NULL)
 	{
-		printf("Usage: gitminer -c <clone_url> -u <username>\n");
+		printf("Usage: gitminer -c <clone_url> -u <username> -n <node_id>\n");
 		exit(1);
 	}
 	cl_int err;
@@ -315,7 +323,7 @@ int main(int argc, char **argv)
 	kernel = clCreateKernel(program, KERNEL_FUNC, &err);
 	check_err(err, "Couldn't create a kernel");
 
-	clone(clone_url);
+	gclone(clone_url);
 	sync_changes(0);
 
 	while (!stopping)

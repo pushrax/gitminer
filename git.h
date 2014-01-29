@@ -17,7 +17,7 @@
 void print_n(uint8_t *hash, int n);
 
 void run(char *command);
-void clone(char *origin);
+void gclone(char *origin);
 void reset();
 void add_coin(char *user);
 
@@ -52,9 +52,9 @@ void sha1_writebyte(sha1nfo *s, uint8_t data);
 void sha1_write(sha1nfo *s, const char *data, size_t len);
 uint8_t *sha1_result(sha1nfo *s);
 
-void commit_body(char *buffer);
+void commit_body(char *buffer, char *node_id);
 void commit_hash_outputs(char *commit, sha1nfo *s);
-void perform_commit(char *commit, char *sha);
+void perform_commit(char *commit, char *sha, int len);
 void sync_changes(int push);
 
 const char *get_cl_error_string(cl_int err);

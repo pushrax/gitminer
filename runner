@@ -1,7 +1,7 @@
 #!/bin/bash
 
 while :; do
-	./gitminer -c lvl1-kdilax5o@stripe-ctf.com:current-round -u user-qy4eit56
-	echo "Miner stopped. Restarting in 20 seconds (Ctrl-C to cancel)."
-	sleep 20
+	./gitminer2 -c lvl1-kdilax5o@stripe-ctf.com:current-round -u user-qy4eit56
+	echo "Miner stopped. Restarting in 10 seconds (Ctrl-C to cancel)."
+	sleep 600
 done

@@ -6,13 +6,8 @@
 #define HASH_LENGTH 20
 #define BLOCK_LENGTH 64
 
-#define d_rol32(n, k) (n << k) | (n >> (32 - k))
+#define rol32(n, k) rotate((n), (uint)(k))
 #define ascii(n, k) ('a' + (((n) >> k * 4) & 0xf)) << (k * 8 % 32)
-
-uint rol32(uint n, int bits) // faster for CPUs for some reason
-{
-	return (n << bits) | (n >> (32 - bits));
-}
 
 __kernel void sha1_round(
 	const uint h0,
@@ -21,23 +16,23 @@ __kernel void sha1_round(
 	const uint h3,
 	const uint h4,
 	const uint pre_count,
-	const ulong offset,
+	const uint offset,
 	const uint hash_count,
-	__global ulong *valid_nonce
+	__global uint *valid_nonce
 )
 {
 	uint buffer[BLOCK_LENGTH / 4];
 	uint state[HASH_LENGTH / 4];
 	uint count = pre_count + 8;
-	ulong nonce = get_global_id(0) * hash_count + offset;
-	ulong max_nonce = nonce + hash_count;
+	uint nonce = get_global_id(0) * hash_count + offset;
+	uint max_nonce = nonce + hash_count;
 	//printf("%d - %d - %d\n", get_global_id(0), get_local_id(0), nonce);
 
 	while (nonce < max_nonce)
 	{
 
-		buffer[0] = ascii(nonce, 0) | ascii(nonce, 1) | ascii(nonce, 2) | ascii(nonce, 3);
-		buffer[1] = ascii(nonce, 4) | ascii(nonce, 5) | ascii(nonce, 6) | ascii(nonce, 7);
+		buffer[0] = nonce;//ascii(nonce, 0) | ascii(nonce, 1) | ascii(nonce, 2) | ascii(nonce, 3);
+		buffer[1] = 0;//ascii(nonce, 4) | ascii(nonce, 5) | ascii(nonce, 6) | ascii(nonce, 7);
 		buffer[2] = 0x80000000;
 		buffer[3] = 0;
 		buffer[4] = 0;
@@ -87,11 +82,11 @@ __kernel void sha1_round(
 			a = t;
 		}
 
-		if (a + h0 <= 1)
+		if (a + h0 == 0 && b + h1 <= 0x05ffffff)
 		{
+			barrier(CLK_GLOBAL_MEM_FENCE);
 			if (valid_nonce[0] != 0) break;
 			valid_nonce[0] = nonce;
-			barrier(CLK_GLOBAL_MEM_FENCE);
 			break;
 		}
 		nonce++;

@@ -24,15 +24,15 @@ void run_with_output(char *command, char *buffer, int len)
 	pclose(output);
 }
 
-void run_with_input(char *command, char *buffer)
+void run_with_input(char *command, char *buffer, int len)
 {
 	FILE *input;
 	input = popen(command, "w");
-	fputs(buffer, input);
+	fwrite(buffer, sizeof(char), len, input);
 	pclose(input);
 }
 
-void clone(char *origin)
+void gclone(char *origin)
 {
 	char cmd_buffer[256];
 	printf("[GIT] ");
@@ -63,7 +63,7 @@ void strip_newline(char *buffer)
 	buffer[len - 1] = '\0';
 }
 
-void commit_body(char *buffer)
+void commit_body(char *buffer, char *node_id)
 {
 	char tree[64], parent[64], date[32];
 	run_with_output("git write-tree", tree, 64);
@@ -78,7 +78,7 @@ void commit_body(char *buffer)
 			"parent %s\n"
 			"author pushrax <jli@shopify.com> %s +0000\n"
 			"committer pushrax <jli@shopify.com> %s +0000\n\n"
-			"+/u/gitcointip $%s verify\n", tree, parent, date, date, date);
+			"+/u/gitcointip $%s %s\n", tree, parent, date, date, date, node_id);
 
 	int len = strlen(buffer);
 	while ((len + 11) % 64)
@@ -99,11 +99,11 @@ void commit_hash_outputs(char *commit, sha1nfo *s)
 	sha1_write(s, buffer, len);
 }
 
-void perform_commit(char *commit, char *sha)
+void perform_commit(char *commit, char *sha, int len)
 {
 	char command[128];
 	printf("[GIT] ");
-	run_with_input("git hash-object -t commit --stdin -w", commit);
+	run_with_input("git hash-object -t commit --stdin -w", commit, len);
 
 	sprintf(command, "git reset --hard \"%s\"", sha);
 	run_with_output(command, NULL, 0);
@@ -111,7 +111,7 @@ void perform_commit(char *commit, char *sha)
 
 void sync_changes(int push)
 {
-	int need_to_fetch = 1;
+	int need_to_fetch = 0;
 	char buffer[1024];
 	if (push)
 	{
