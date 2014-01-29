@@ -1,5 +1,6 @@
 #define PROGRAM_FILE "gitminer.cl"
 #define KERNEL_FUNC "sha1_round"
+#define PLATFORM 0
 
 #include <math.h>
 #include <stdio.h>
@@ -79,11 +80,11 @@ cl_device_id create_device()
 	err = clGetPlatformIDs(64, platforms, &num_platforms);
 	check_err(err, "Couldn't identify a platform");
 
-	err = clGetDeviceIDs(platforms[1], CL_DEVICE_TYPE_GPU, 1, &dev, &num_devices);
+	err = clGetDeviceIDs(platforms[PLATFORM], CL_DEVICE_TYPE_GPU, 1, &dev, &num_devices);
 	if (err == CL_DEVICE_NOT_FOUND)
 	{
 		printf("No GPU detected, falling back to CPU\n");
-		err = clGetDeviceIDs(platforms[1], CL_DEVICE_TYPE_CPU, 1, &dev, &num_devices);
+		err = clGetDeviceIDs(platforms[PLATFORM], CL_DEVICE_TYPE_CPU, 1, &dev, &num_devices);
 	}
 	check_err(err, "Couldn't access any devices");
 
